@@ -1,0 +1,117 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            arch: x64
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-24.04-arm
+            arch: arm64
+            target: aarch64-unknown-linux-gnu
+          - os: windows-latest
+            arch: x64
+            target: x86_64-pc-windows-msvc
+          - os: windows-11-arm
+            arch: arm64
+            target: aarch64-pc-windows-msvc
+          - os: macos-13
+            arch: x64
+            target: x86_64-apple-darwin
+          - os: macos-latest
+            arch: arm64
+            target: aarch64-apple-darwin
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Build frontend
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile && pnpm build
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: ${{ matrix.target }}
+
+      - name: Enable Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+
+      - name: Build backend
+        working-directory: backend
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package Linux .deb
+        if: runner.os == 'Linux'
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p pkg/DEBIAN pkg/usr/bin
+          cp "backend/target/${{ matrix.target }}/release/ocm-backend" pkg/usr/bin/
+          cat > pkg/DEBIAN/control <<CONTROL
+          Package: ocm
+          Version: $VERSION
+          Section: utils
+          Priority: optional
+          Architecture: ${{ matrix.arch }}
+          Maintainer: OCM
+          Description: OpenCode Config Manager
+          CONTROL
+          dpkg-deb --build pkg "ocm_${VERSION}_${{ matrix.arch }}.deb"
+
+      - name: Package Windows .zip
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "backend/target/${{ matrix.target }}/release/ocm-backend.exe" -DestinationPath "ocm-${{ matrix.target }}.zip"
+
+      - name: Package macOS .tar.gz
+        if: runner.os == 'macOS'
+        run: |
+          tar czf "ocm-${{ matrix.target }}.tar.gz" -C "backend/target/${{ matrix.target }}/release" ocm-backend
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ocm-${{ matrix.target }}
+          path: |
+            ocm_*.deb
+            ocm-*.zip
+            ocm-*.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+      - name: Prepare release files
+        run: |
+          mkdir -p release-files
+          find . -type f \( -name '*.deb' -o -name '*.zip' -o -name '*.tar.gz' \) -exec cp {} release-files/ \;
+          ls -lh release-files/
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-files/*
+          generate_release_notes: true
