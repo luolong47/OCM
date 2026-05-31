@@ -16,9 +16,11 @@ pub struct Config {
 
 impl Config {
     pub fn from_env() -> Self {
-        let database_url = env_or("DATABASE_URL", "sqlite:data/ocm.db?mode=rwc");
+        let database_url = std::env::var("DATABASE_URL")
+            .unwrap_or_else(|_| default_database_url());
         let bind = env_or("OCM_BIND", "127.0.0.1:8787");
-        let frontend_url = env_or("OCM_FRONTEND_URL", "http://localhost:5174/");
+        let frontend_url = std::env::var("OCM_FRONTEND_URL")
+            .unwrap_or_else(|_| format!("http://{bind}/"));
         let models_dev_url = env_or("OCM_MODELS_DEV_URL", "https://models.dev/api.json");
         let models_dev_ttl = Duration::from_secs(env_u64("OCM_MODELS_DEV_TTL_SECS", 86_400));
         let provider_list_ttl = Duration::from_secs(env_u64("OCM_PROVIDER_LIST_TTL_SECS", 300));
@@ -43,6 +45,11 @@ fn default_opencode_path() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("."))
         .join("opencode")
         .join("opencode.json")
+}
+
+fn default_database_url() -> String {
+    let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
+    format!("sqlite:{}?mode=rwc", base.join("ocm").join("ocm.db").display())
 }
 
 fn env_or(key: &str, default: &str) -> String {

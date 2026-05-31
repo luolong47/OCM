@@ -17,6 +17,9 @@
 /frontend/.vite/
 /frontend/coverage/
 
+# Build artifacts
+*.deb
+
 # Logs / temp
 *.log
 npm-debug.log*

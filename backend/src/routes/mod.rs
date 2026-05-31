@@ -11,9 +11,9 @@ use crate::error::{ApiOk, ApiResult};
 use crate::state::AppState;
 
 pub fn router(state: AppState) -> Router {
-    Router::new()
+    // All API routes live under /api so the root can serve the embedded frontend SPA.
+    let api = Router::new()
         .route("/health", get(health))
-        // Provider CRUD.
         .route("/providers", get(providers::list).post(providers::create))
         .route(
             "/providers/{id}",
@@ -21,7 +21,6 @@ pub fn router(state: AppState) -> Router {
                 .put(providers::update)
                 .delete(providers::remove),
         )
-        // Model catalog (fetch = live ids × models.dev × selection).
         .route("/providers/{id}/models/fetch", get(models::fetch))
         .route("/providers/{id}/models/resolve", get(models::resolve))
         .route("/providers/{id}/models/refresh", post(models::refresh))
@@ -36,26 +35,25 @@ pub fn router(state: AppState) -> Router {
             "/providers/{id}/models/deselect-all",
             post(models::deselect_all),
         )
-        // Per-selected-model override (separate prefix avoids any route overlap).
         .route(
             "/providers/{id}/selected/{model_id}",
             put(models::update_model),
         )
-        // Apply to opencode.json.
         .route("/providers/{id}/apply", post(apply::apply_one))
         .route("/providers/{id}/unapply", post(apply::unapply_one))
         .route("/providers/{id}/apply/preview", get(apply::preview))
-        // Import from opencode.json.
         .route("/import", post(import::import_all))
-        // Local application settings.
         .route(
             "/settings/autostart",
             get(settings::get_autostart).put(settings::set_autostart),
         )
-        // models.dev catalog maintenance.
         .route("/models-dev/status", get(models::models_dev_status))
         .route("/models-dev/refresh", post(models::refresh_models_dev))
-        .with_state(state)
+        .with_state(state);
+
+    Router::new()
+        .nest("/api", api)
+        .fallback(super::embedded::handler)
 }
 
 async fn health() -> ApiResult<serde_json::Value> {

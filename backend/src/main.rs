@@ -6,6 +6,7 @@ mod clients;
 mod config;
 mod db;
 mod domain;
+mod embedded;
 mod error;
 mod routes;
 mod services;
