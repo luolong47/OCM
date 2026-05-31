@@ -23,21 +23,9 @@ jobs:
           - os: ubuntu-24.04
             arch: x64
             target: x86_64-unknown-linux-gnu
-          - os: ubuntu-24.04-arm
-            arch: arm64
-            target: aarch64-unknown-linux-gnu
           - os: windows-latest
             arch: x64
             target: x86_64-pc-windows-msvc
-          - os: windows-11-arm
-            arch: arm64
-            target: aarch64-pc-windows-msvc
-          - os: macos-13
-            arch: x64
-            target: x86_64-apple-darwin
-          - os: macos-latest
-            arch: arm64
-            target: aarch64-apple-darwin
 
     runs-on: ${{ matrix.os }}
 
@@ -78,6 +66,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: backend
+          key: ${{ runner.os }}-${{ matrix.target }}
+          cache-targets: true
 
       - name: Build backend
         working-directory: backend
@@ -105,11 +95,6 @@ jobs:
         run: |
           Compress-Archive -Path "backend/target/${{ matrix.target }}/release/ocm-backend.exe" -DestinationPath "ocm-${{ matrix.target }}.zip"
 
-      - name: Package macOS .tar.gz
-        if: runner.os == 'macOS'
-        run: |
-          tar czf "ocm-${{ matrix.target }}.tar.gz" -C "backend/target/${{ matrix.target }}/release" ocm-backend
-
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -117,7 +102,6 @@ jobs:
           path: |
             ocm_*.deb
             ocm-*.zip
-            ocm-*.tar.gz
 
   release:
     needs: build
