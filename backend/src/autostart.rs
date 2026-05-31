@@ -1,15 +1,20 @@
 //! XDG autostart integration for Linux desktops.
 
+#[cfg(target_os = "linux")]
 use std::fs;
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 use std::os::unix::fs::PermissionsExt;
+#[cfg(target_os = "linux")]
 use std::path::PathBuf;
 
 use serde::Serialize;
 
+#[cfg(target_os = "linux")]
 use crate::error::AppError;
 
+#[cfg(target_os = "linux")]
 const DESKTOP_FILE: &str = "ocm-backend.desktop";
+#[cfg(target_os = "linux")]
 const SCRIPT_FILE: &str = "ocm-autostart.sh";
 
 #[derive(Debug, Clone, Serialize)]
@@ -21,6 +26,7 @@ pub struct AutostartStatus {
     pub working_dir: String,
 }
 
+#[cfg(target_os = "linux")]
 pub fn status() -> Result<AutostartStatus, AppError> {
     let paths = autostart_paths()?;
     Ok(AutostartStatus {
@@ -32,6 +38,7 @@ pub fn status() -> Result<AutostartStatus, AppError> {
     })
 }
 
+#[cfg(target_os = "linux")]
 pub fn set_enabled(enabled: bool) -> Result<AutostartStatus, AppError> {
     if enabled {
         enable()?;
@@ -41,6 +48,7 @@ pub fn set_enabled(enabled: bool) -> Result<AutostartStatus, AppError> {
     status()
 }
 
+#[cfg(target_os = "linux")]
 fn enable() -> Result<(), AppError> {
     let paths = autostart_paths()?;
     if let Some(parent) = paths.desktop_file.parent() {
@@ -77,17 +85,13 @@ fn enable() -> Result<(), AppError> {
     Ok(())
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 fn make_executable(path: &PathBuf) -> Result<(), AppError> {
     fs::set_permissions(path, fs::Permissions::from_mode(0o755))
         .map_err(|e| AppError::Internal(format!("chmod {}: {e}", path.display())))
 }
 
-#[cfg(not(unix))]
-fn make_executable(_path: &PathBuf) -> Result<(), AppError> {
-    Ok(())
-}
-
+#[cfg(target_os = "linux")]
 fn disable() -> Result<(), AppError> {
     let paths = autostart_paths()?;
     remove_if_exists(paths.desktop_file)?;
@@ -95,6 +99,7 @@ fn disable() -> Result<(), AppError> {
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
 fn remove_if_exists(path: PathBuf) -> Result<(), AppError> {
     match fs::remove_file(&path) {
         Ok(()) => Ok(()),
@@ -106,6 +111,7 @@ fn remove_if_exists(path: PathBuf) -> Result<(), AppError> {
     }
 }
 
+#[cfg(target_os = "linux")]
 struct AutostartPaths {
     desktop_file: PathBuf,
     script_file: PathBuf,
@@ -113,6 +119,7 @@ struct AutostartPaths {
     working_dir: PathBuf,
 }
 
+#[cfg(target_os = "linux")]
 fn autostart_paths() -> Result<AutostartPaths, AppError> {
     let config_dir = dirs::config_dir()
         .ok_or_else(|| AppError::Internal("cannot determine user config directory".into()))?;
@@ -128,10 +135,12 @@ fn autostart_paths() -> Result<AutostartPaths, AppError> {
     })
 }
 
+#[cfg(target_os = "linux")]
 fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
 }
 
+#[cfg(target_os = "linux")]
 fn desktop_quote(value: &str) -> String {
     format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
 }
