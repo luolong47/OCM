@@ -1,6 +1,7 @@
 //! XDG autostart integration for Linux desktops.
 
 use std::fs;
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 
@@ -58,8 +59,7 @@ fn enable() -> Result<(), AppError> {
     );
     fs::write(&paths.script_file, script)
         .map_err(|e| AppError::Internal(format!("write {}: {e}", paths.script_file.display())))?;
-    fs::set_permissions(&paths.script_file, fs::Permissions::from_mode(0o755))
-        .map_err(|e| AppError::Internal(format!("chmod {}: {e}", paths.script_file.display())))?;
+    make_executable(&paths.script_file)?;
 
     let desktop = format!(
         "[Desktop Entry]\n\
@@ -74,6 +74,17 @@ fn enable() -> Result<(), AppError> {
     );
     fs::write(&paths.desktop_file, desktop)
         .map_err(|e| AppError::Internal(format!("write {}: {e}", paths.desktop_file.display())))?;
+    Ok(())
+}
+
+#[cfg(unix)]
+fn make_executable(path: &PathBuf) -> Result<(), AppError> {
+    fs::set_permissions(path, fs::Permissions::from_mode(0o755))
+        .map_err(|e| AppError::Internal(format!("chmod {}: {e}", path.display())))
+}
+
+#[cfg(not(unix))]
+fn make_executable(_path: &PathBuf) -> Result<(), AppError> {
     Ok(())
 }
 
