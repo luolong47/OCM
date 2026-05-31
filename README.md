@@ -1,105 +1,165 @@
-# OpenCode Config Manager (OCM)
+# OpenCode Config Manager（OCM）
 
-A local tool to browse a provider's models, filter the haystack down, batch-select the
-ones you want, optionally override their config, and write them into your
-`opencode.json` — without hand-editing JSON or clobbering the rest of your config.
+OCM 是一个本地工具，用来管理 `opencode.json` 里的模型提供商和模型配置。它可以从提供商接口读取可用模型，结合 `models.dev` 的模型元数据进行筛选、批量选择、覆盖配置，并把结果写回 OpenCode 配置文件，避免手工编辑 JSON。
 
-## How it works (the important bit)
+## 工作方式
 
-A provider's catalog is built from **two** sources, joined by model id:
+OCM 的模型列表来自两个数据源，并按模型 ID 合并：
 
-| Source | Gives you | Why |
-|---|---|---|
-| Provider `GET {base_url}/models` | the **ids the key can actually call** | ground truth, but OpenAI-compatible endpoints return *only* ids |
-| [`models.dev`](https://models.dev) `api.json` | **rich metadata** (context, modalities, cost, tool/reasoning) | the same dataset opencode itself uses |
+| 数据源 | 提供内容 | 用途 |
+| --- | --- | --- |
+| 提供商 `GET {base_url}/models` | 当前 API Key 实际可调用的模型 ID | 真实可用性来源，但 OpenAI 兼容接口通常只返回 ID |
+| [`models.dev`](https://models.dev) `api.json` | 上下文长度、输入输出模态、价格、工具调用、推理能力等元数据 | 用于能力筛选，也是 opencode 使用的数据集 |
 
-So capability filtering ("supports image", "≥128K context") works even though the
-provider endpoint returns bare ids. Ids present at the provider but missing from
-models.dev are surfaced as **provider-only** (no metadata) and can still be selected.
+因此，即使提供商接口只返回模型 ID，OCM 仍然可以筛选“支持图片”“上下文大于 128K”“支持工具调用”等条件。对于提供商返回但 `models.dev` 中不存在的模型，OCM 会标记为“仅提供商存在”，仍然允许选择。
 
-OCM persists **only your selection + overrides** (plus a metadata snapshot taken at
-selection time). The full model list is never stored — it's fetched live and cached.
+OCM 只持久化你选择的模型、覆盖配置，以及选择时的元数据快照。完整模型列表不会写入数据库，只会实时拉取并缓存。
 
-```
+```text
 provider /v1/models ─┐
-                     ├─ join by id ─► filter ─► select ─► merge(snapshot, override) ─► opencode.json
-models.dev/api.json ─┘                                    (preserves your other providers + keys)
+                     ├─ 按模型 ID 合并 ─► 筛选 ─► 选择 ─► 合并快照和覆盖配置 ─► opencode.json
+models.dev/api.json ─┘                                      保留其他 provider 和 key
 ```
 
-## Layout
+## 项目结构
 
-```
-backend/    Rust + Axum + SQLx (SQLite) + reqwest + moka
+```text
+backend/    Rust + Axum + SQLx(SQLite) + reqwest + moka
 frontend/   Vue 3 + Vite + Naive UI + Pinia + vue-router
+docs/       字段说明和 models.dev API 参考
 ```
 
-## Prerequisites
+## 环境要求
 
-- **Rust** (stable) — `cargo`
-- **Node 20+** and **pnpm** — e.g. via nvm + corepack:
-  ```sh
-  nvm use default       # or: nvm install --lts
-  corepack enable pnpm  # if pnpm isn't on PATH
-  ```
+- Rust stable，需要 `cargo`
+- Node.js 20+ 和 pnpm
 
-## Run the backend
+如果本机还没有 pnpm，可以使用：
+
+```sh
+corepack enable pnpm
+```
+
+## 启动后端
 
 ```sh
 cd backend
-cp .env.example .env        # optional; sane defaults otherwise
+cp .env.example .env
 cargo run
 ```
 
-Listens on `http://127.0.0.1:8787` by default. Migrations run automatically; the
-SQLite db is created at `backend/data/ocm.db`.
+默认监听：
 
-> ⚠️ Apply writes to `~/.config/opencode/opencode.json` (it backs up to `.json.bak`
-> first and preserves any providers/keys it didn't create). To target a throwaway file
-> while experimenting, set `OCM_OPENCODE_CONFIG=/tmp/opencode.json`.
+```text
+http://127.0.0.1:8787
+```
 
-Key env vars (all optional — see `.env.example`):
+数据库默认创建在：
 
-| Var | Default | Meaning |
-|---|---|---|
-| `DATABASE_URL` | `sqlite:data/ocm.db?mode=rwc` | SQLite location |
-| `OCM_BIND` | `127.0.0.1:8787` | listen address |
-| `OCM_MODELS_DEV_URL` | `https://models.dev/api.json` | metadata source |
-| `OCM_MODELS_DEV_TTL_SECS` | `86400` | metadata cache TTL |
-| `OCM_PROVIDER_LIST_TTL_SECS` | `300` | per-provider id-list cache TTL |
-| `OCM_OPENCODE_CONFIG` | `~/.config/opencode/opencode.json` | apply target |
+```text
+backend/data/ocm.db
+```
 
-## Run the frontend
+后端启动时会自动执行数据库迁移。
+
+### 写入 OpenCode 配置
+
+应用配置时，OCM 默认写入：
+
+```text
+~/.config/opencode/opencode.json
+```
+
+写入前会先备份为 `.json.bak`，并保留不属于 OCM 管理的 provider、key 和其他配置。
+
+如果只是测试，不想改真实配置，可以指定临时文件：
+
+```sh
+OCM_OPENCODE_CONFIG=/tmp/opencode.json cargo run
+```
+
+## 后端环境变量
+
+所有环境变量都是可选的，默认值见 `backend/.env.example`。
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `DATABASE_URL` | `sqlite:data/ocm.db?mode=rwc` | SQLite 数据库位置 |
+| `OCM_BIND` | `127.0.0.1:8787` | 后端监听地址 |
+| `OCM_MODELS_DEV_URL` | `https://models.dev/api.json` | 模型元数据来源 |
+| `OCM_MODELS_DEV_TTL_SECS` | `86400` | `models.dev` 元数据缓存时间，单位秒 |
+| `OCM_PROVIDER_LIST_TTL_SECS` | `300` | 每个提供商模型 ID 列表缓存时间，单位秒 |
+| `OCM_OPENCODE_CONFIG` | `~/.config/opencode/opencode.json` | OpenCode 配置写入目标 |
+| `RUST_LOG` | `ocm_backend=debug,tower_http=info,info` | 后端日志级别 |
+
+## 启动前端
 
 ```sh
 cd frontend
 pnpm install
-pnpm dev        # http://localhost:5174  (proxies /api → backend on :8787)
+pnpm dev
 ```
 
-`pnpm build` for a production bundle, `pnpm typecheck` to run `vue-tsc`.
+前端默认地址：
+
+```text
+http://localhost:5174
+```
+
+开发环境会把 `/api` 代理到后端 `http://127.0.0.1:8787`。
+
+常用命令：
+
+```sh
+pnpm build      # 构建生产版本
+pnpm preview    # 预览生产构建
+pnpm typecheck  # TypeScript 类型检查
+```
+
+## 主要功能
+
+- 管理 OpenCode provider：新增、编辑、删除和查看。
+- 从提供商实时拉取模型 ID，并与 `models.dev` 元数据合并。
+- 按搜索词、上下文长度、图片输入、工具调用等条件筛选模型。
+- 支持单选、批量选择、按筛选条件全选、全部取消。
+- 支持为选中的模型设置显示名称、启用状态和覆盖配置。
+- 预览将要写入的 OpenCode 配置。
+- 将选中的 provider 和模型应用到 `opencode.json`。
 
 ## HTTP API
 
-All responses are `{ "code": 0, "data": ... }` on success, or
-`{ "code": <nonzero>, "message": "...", "data": null }` on error.
+成功响应格式：
 
+```json
+{ "code": 0, "data": {} }
 ```
+
+失败响应格式：
+
+```json
+{ "code": 1, "message": "错误信息", "data": null }
+```
+
+主要接口：
+
+```text
 GET    /health
+
 GET    /providers
-POST   /providers                                   {id,name,npm,base_url,api_key_env,...}
+POST   /providers
 GET    /providers/{id}
 PUT    /providers/{id}
 DELETE /providers/{id}
 
-GET    /providers/{id}/models/fetch?search=&support_image=&min_context=&tool_call=&...
-GET    /providers/{id}/models/resolve?model_id=...       # explain metadata match source
-POST   /providers/{id}/models/refresh               # force re-fetch live id list
+GET    /providers/{id}/models/fetch
+GET    /providers/{id}/models/resolve
+POST   /providers/{id}/models/refresh
 GET    /providers/{id}/models/selected
-POST   /providers/{id}/models/select                {model_ids:[...]}
-POST   /providers/{id}/models/deselect              {model_ids:[...]}
-POST   /providers/{id}/models/select-all-filtered   {filters:{...}}   # spans whole result set
+POST   /providers/{id}/models/select
+POST   /providers/{id}/models/deselect
+POST   /providers/{id}/models/select-all-filtered
 POST   /providers/{id}/models/deselect-all
-PUT    /providers/{id}/selected/{model_id}          {display_name?,is_enabled?,override_patch?}
+PUT    /providers/{id}/selected/{model_id}
 
 GET    /providers/{id}/apply/preview
 POST   /providers/{id}/apply
@@ -107,8 +167,28 @@ POST   /apply
 POST   /models-dev/refresh
 ```
 
-## Tests
+## 测试
+
+后端测试：
 
 ```sh
-cd backend && cargo test     # covers the join/filter core + merge-patch
+cd backend
+cargo test
 ```
+
+前端类型检查：
+
+```sh
+cd frontend
+pnpm typecheck
+```
+
+## Git 忽略规则
+
+仓库不会提交本地环境、数据库、构建产物和依赖目录，例如：
+
+- `backend/.env`
+- `backend/data/`
+- `backend/target/`
+- `frontend/node_modules/`
+- `frontend/dist/`
