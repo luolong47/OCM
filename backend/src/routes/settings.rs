@@ -37,9 +37,10 @@ pub async fn get_autostart() -> ApiResult<crate::autostart::AutostartStatus> {
 
 #[cfg(not(target_os = "linux"))]
 pub async fn set_autostart(
-    _input: Json<AutostartInput>,
+    Json(input): Json<AutostartInput>,
 ) -> ApiResult<crate::autostart::AutostartStatus> {
     // On non-Linux platforms, setting autostart is not supported
+    let _ = input.enabled;
     Ok(ApiOk(crate::autostart::AutostartStatus {
         enabled: false,
         desktop_file: String::new(),
