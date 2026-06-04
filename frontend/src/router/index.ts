@@ -24,6 +24,11 @@ const routes = [
     component: () => import('@/views/ProviderModelManageView.vue'),
     props: true,
   },
+  {
+    path: '/settings',
+    name: 'settings',
+    component: () => import('@/views/SettingsView.vue'),
+  },
 ]
 
 export default createRouter({

@@ -9,7 +9,6 @@ import {
   NPopconfirm,
   NSpace,
   NSpin,
-  NSwitch,
   NTag,
   NTable,
   useMessage,
@@ -32,8 +31,6 @@ const router = useRouter()
 const message = useMessage()
 const store = useProviderStore()
 const modelsDevStatus = ref<ModelsDevStatus | null>(null)
-const autostartEnabled = ref(false)
-const autostartLoading = ref(false)
 
 const modelsDevRefreshText = computed(() => {
   if (!modelsDevStatus.value) return 'models.dev 尚未刷新'
@@ -41,7 +38,7 @@ const modelsDevRefreshText = computed(() => {
 })
 
 onMounted(async () => {
-  await Promise.all([store.load(), loadModelsDevStatus(), loadAutostart()])
+  await Promise.all([store.load(), loadModelsDevStatus()])
 })
 
 async function loadModelsDevStatus() {
@@ -59,27 +56,6 @@ async function refreshModelsDev() {
     message.success(`models.dev 已刷新 — 原始 ${status?.model_count ?? indexed_model_count} 个模型，索引 ${indexed_model_count} 个模型`)
   } catch (e) {
     message.error((e as Error).message)
-  }
-}
-
-async function loadAutostart() {
-  try {
-    autostartEnabled.value = (await api.getAutostart()).enabled
-  } catch (e) {
-    message.error((e as Error).message)
-  }
-}
-
-async function setAutostart(enabled: boolean) {
-  autostartLoading.value = true
-  try {
-    autostartEnabled.value = (await api.setAutostart(enabled)).enabled
-    message.success(autostartEnabled.value ? '已开启开机自启' : '已关闭开机自启')
-  } catch (e) {
-    autostartEnabled.value = !enabled
-    message.error((e as Error).message)
-  } finally {
-    autostartLoading.value = false
   }
 }
 
@@ -129,15 +105,6 @@ async function unapplyProvider(id: string) {
     <n-space justify="space-between" align="center" style="margin-bottom: 16px">
       <h2 style="margin: 0">服务商</h2>
       <n-space>
-        <n-space :size="6" align="center" style="line-height: 34px">
-          <span style="font-size: 13px; color: #666">开机自启</span>
-          <n-switch
-            size="small"
-            :value="autostartEnabled"
-            :loading="autostartLoading"
-            @update:value="setAutostart"
-          />
-        </n-space>
         <span style="font-size: 13px; color: #888; line-height: 34px">
           {{ modelsDevRefreshText }}
         </span>

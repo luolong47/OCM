@@ -90,6 +90,7 @@ OCM_OPENCODE_CONFIG=/tmp/opencode.json cargo run
 | `OCM_MODELS_DEV_TTL_SECS` | `86400` | `models.dev` 元数据缓存时间，单位秒 |
 | `OCM_PROVIDER_LIST_TTL_SECS` | `300` | 每个提供商模型 ID 列表缓存时间，单位秒 |
 | `OCM_OPENCODE_CONFIG` | `~/.config/opencode/opencode.json` | OpenCode 配置写入目标 |
+| `OCM_SETTINGS_PATH` | `~/.config/ocm/settings.json` | OCM 本地设置文件，保存坚果云备份配置 |
 | `RUST_LOG` | `ocm_backend=debug,tower_http=info,info` | 后端日志级别 |
 
 ## 启动前端
@@ -125,6 +126,18 @@ pnpm typecheck  # TypeScript 类型检查
 - 支持为选中的模型设置显示名称、启用状态和覆盖配置。
 - 预览将要写入的 OpenCode 配置。
 - 将选中的 provider 和模型应用到 `opencode.json`。
+- 支持通过坚果云 WebDAV 手动备份当前 `opencode.json/jsonc`。
+
+## 坚果云备份
+
+服务商页面新增了“坚果云备份”卡片，可配置：
+
+- WebDAV 地址，例如 `https://dav.jianguoyun.com/dav/`
+- 用户名
+- 应用密码
+- 远程目录（可选）
+
+点击“立即备份当前配置”后，OCM 会把当前使用中的 `opencode.json` 或 `opencode.jsonc` 上传到坚果云，并附带时间戳文件名。
 
 ## HTTP API
 

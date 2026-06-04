@@ -151,3 +151,24 @@ export interface AutostartStatus {
   executable: string
   working_dir: string
 }
+
+export interface NutstoreSettings {
+  enabled: boolean
+  server_url: string
+  username: string
+  password: string
+  remote_dir: string
+}
+
+export interface NutstoreBackupReport {
+  database_path: string
+  remote_archive_url: string
+  remote_latest_url: string
+  bytes_uploaded: number
+}
+
+export interface NutstoreRestoreReport {
+  remote_url: string
+  providers_restored: number
+  selected_models_restored: number
+}

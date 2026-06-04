@@ -13,6 +13,9 @@ import type {
   ImportReport,
   ModelsDevRefreshResult,
   ModelsDevStatus,
+  NutstoreBackupReport,
+  NutstoreRestoreReport,
+  NutstoreSettings,
 } from './types'
 
 const http = axios.create({
@@ -87,6 +90,14 @@ export const api = {
       unwrap<AutostartStatus>(http.get('/settings/autostart')),
   setAutostart: (enabled: boolean) =>
       unwrap<AutostartStatus>(http.put('/settings/autostart', { enabled })),
+  getNutstoreSettings: () =>
+      unwrap<NutstoreSettings>(http.get('/settings/nutstore')),
+  setNutstoreSettings: (input: NutstoreSettings) =>
+      unwrap<NutstoreSettings>(http.put('/settings/nutstore', input)),
+  backupToNutstore: () =>
+      unwrap<NutstoreBackupReport>(http.post('/backup/nutstore')),
+  restoreFromNutstore: () =>
+      unwrap<NutstoreRestoreReport>(http.post('/backup/nutstore/restore')),
 
   // models.dev maintenance
   modelsDevStatus: () =>

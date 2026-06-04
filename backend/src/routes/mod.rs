@@ -47,6 +47,12 @@ pub fn router(state: AppState) -> Router {
             "/settings/autostart",
             get(settings::get_autostart).put(settings::set_autostart),
         )
+        .route(
+            "/settings/nutstore",
+            get(settings::get_nutstore).put(settings::set_nutstore),
+        )
+        .route("/backup/nutstore", post(settings::backup_nutstore))
+        .route("/backup/nutstore/restore", post(settings::restore_nutstore))
         .route("/models-dev/status", get(models::models_dev_status))
         .route("/models-dev/refresh", post(models::refresh_models_dev))
         .with_state(state);

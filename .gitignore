@@ -1,5 +1,6 @@
 # Rust
 /backend/target/
+/src-tauri/target/
 **/*.rs.bk
 
 # Local data / secrets
