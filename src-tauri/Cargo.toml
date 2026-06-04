@@ -1,6 +1,6 @@
 [package]
 name = "ocm"
-version = "0.2.0"
+version = "0.2.1"
 description = "OpenCode Config Manager"
 authors = ["OCM Developer"]
 license = ""
@@ -8,18 +8,16 @@ repository = ""
 edition = "2021"
 
 [build-dependencies]
-tauri-build = { version = "1.5", features = [] }
+tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "1.8", features = ["system-tray", "shell-open"] }
-tauri-plugin-autostart = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-autostart = { version = "2" }
+tauri-plugin-shell = { version = "2" }
 ocm-backend = { path = "../backend" }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-
-[features]
-default = ["custom-protocol"]
-custom-protocol = ["tauri/custom-protocol"]
+tauri-plugin-opener = "2.5.4"

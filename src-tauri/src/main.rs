@@ -1,7 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::sync::Arc;
-use tauri::{CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu};
+use tauri::{Manager, menu::{Menu, MenuItem}, tray::TrayIconBuilder};
+use tauri_plugin_opener::OpenerExt;
 use tracing_subscriber::EnvFilter;
 
 fn main() {
@@ -13,39 +14,13 @@ fn main() {
         )
         .init();
 
-    // 系统托盘菜单
-    let tray_menu = SystemTrayMenu::new()
-        .add_item(CustomMenuItem::new("open", "打开页面"))
-        .add_item(CustomMenuItem::new("quit", "退出"));
-
-    let tray = SystemTray::new().with_menu(tray_menu);
-
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            Some(vec!["--flag1", "--flag2"]),
+            Some(vec![]),
         ))
-        .system_tray(tray)
-        .on_system_tray_event(|app, event| {
-            if let SystemTrayEvent::MenuItemClick { id, .. } = event {
-                match id.as_str() {
-                    "open" => {
-                        let config = app.state::<AppConfig>();
-                        let url = config.frontend_url.clone();
-                        if let Err(e) = tauri::api::shell::open(&app.shell_scope(), &url, None) {
-                            tracing::error!("Failed to open browser: {}", e);
-                        }
-                    }
-                    "quit" => {
-                        // 尝试优雅关闭 HTTP 服务器
-                        let handle = app.state::<ShutdownHandle>();
-                        let _ = handle.tx.try_send(());
-                        app.exit(0);
-                    }
-                    _ => {}
-                }
-            }
-        })
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let config = Arc::new(ocm_backend::config::Config::from_env());
             let frontend_url = config.frontend_url.clone();
@@ -71,6 +46,34 @@ fn main() {
 
             // 保存 shutdown 句柄
             app.manage(ShutdownHandle { tx: shutdown_tx });
+
+            // 创建托盘菜单
+            let open = MenuItem::with_id(app, "open", "打开页面", true, None::<&str>)?;
+            let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&open, &quit])?;
+
+            // 创建托盘图标
+            let _tray = TrayIconBuilder::new()
+                .icon(app.default_window_icon().unwrap().clone())
+                .menu(&menu)
+                .on_menu_event(move |app, event| {
+                    match event.id.as_ref() {
+                        "open" => {
+                            let config = app.state::<AppConfig>();
+                            let url = config.frontend_url.clone();
+                            if let Err(e) = app.opener().open_url(&url, None::<&str>) {
+                                tracing::error!("Failed to open browser: {}", e);
+                            }
+                        }
+                        "quit" => {
+                            let handle = app.state::<ShutdownHandle>();
+                            let _ = handle.tx.try_send(());
+                            app.exit(0);
+                        }
+                        _ => {}
+                    }
+                })
+                .build(app)?;
 
             tracing::info!("OCM Tauri application started");
             tracing::info!("Frontend URL: {}", frontend_url);
