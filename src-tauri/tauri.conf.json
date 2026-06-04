@@ -35,7 +35,7 @@
       "shortDescription": "OpenCode Config Manager",
       "longDescription": "A tool to manage OpenCode model providers and configurations",
       "deb": {
-        "depends": []
+        "depends": ["libwebkit2gtk-4.1-0"]
       },
       "macOS": {
         "frameworks": [],
