@@ -3,7 +3,7 @@
   "version": "0.2.1",
   "identifier": "ai.opencode.ocm",
   "build": {
-    "beforeBuildCommand": "cd /prjs/OCM/frontend && pnpm install && pnpm build",
+    "beforeBuildCommand": "pnpm --dir ../frontend install && pnpm --dir ../frontend build",
     "frontendDist": "../frontend/dist"
   },
   "bundle": {
