@@ -1,9 +1,9 @@
 {
   "productName": "OCM",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "identifier": "ai.opencode.ocm",
   "build": {
-    "beforeBuildCommand": "pnpm --dir ../frontend install && pnpm --dir ../frontend build",
+    "beforeBuildCommand": "",
     "frontendDist": "../frontend/dist"
   },
   "bundle": {
